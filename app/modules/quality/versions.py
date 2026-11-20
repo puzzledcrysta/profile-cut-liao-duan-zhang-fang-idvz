@@ -18,7 +18,10 @@ def split_versions(records, unverified):
         duplicates.extend(finding(row,'SUPERSEDED',f'修订 {latest} 取代旧版本') for row in older)
         signatures = {tuple(row['fields'].items()) for row in candidates}
         if len(signatures)>1:
-            conflicts.extend(finding(row,'REV_CONFLICT',f'最高修订 {latest} 的来源字段互相冲突') for row in candidates)
+            for row in candidates:
+                conflict = finding(row,'REV_CONFLICT',f'最高修订 {latest} 的来源字段互相冲突')
+                conflict['revision'] = row['revision']
+                conflicts.append(conflict)
         else:
             ready.append(candidates[0])
             duplicates.extend(finding(row,'EXACT_DUP',f'同为修订 {latest}，保留第 {candidates[0]["line"]} 行')

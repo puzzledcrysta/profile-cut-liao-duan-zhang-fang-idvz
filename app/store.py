@@ -13,6 +13,19 @@ CREATE TABLE IF NOT EXISTS reviews (
   decision TEXT NOT NULL, note TEXT NOT NULL, changed TEXT NOT NULL,
   PRIMARY KEY(run_id,version)
 );
+CREATE TABLE IF NOT EXISTS corrections (
+  id TEXT PRIMARY KEY, source BLOB NOT NULL, result TEXT NOT NULL,
+  source_sha256 TEXT NOT NULL, status TEXT NOT NULL, created TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS correction_impacts (
+  correction_id TEXT NOT NULL REFERENCES corrections(id),
+  run_id TEXT NOT NULL REFERENCES runs(id), key TEXT NOT NULL,
+  status TEXT NOT NULL, reason_code TEXT NOT NULL,
+  old_revision INTEGER, new_revision INTEGER NOT NULL,
+  changed_fields TEXT NOT NULL, old_amount TEXT, new_amount TEXT,
+  old_raw TEXT NOT NULL, new_raw TEXT NOT NULL, new_proof TEXT NOT NULL,
+  PRIMARY KEY(correction_id,run_id,key)
+);
 """
 
 

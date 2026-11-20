@@ -1,8 +1,10 @@
 from base64 import b64encode
 from fastapi import APIRouter
 from app.inputs import Paired
+from app.store import connection
 from .repository import fetch, history
 from .service import run, replay, get
+from app.modules.correction.service import impacts_for_run
 
 router = APIRouter()
 
@@ -16,7 +18,10 @@ def list_runs():
 
 @router.get('/api/runs/{run_id}')
 def detail(run_id: str):
-    return get(run_id)
+    result = get(run_id)
+    with connection() as db:
+        result['corrections'] = impacts_for_run(db, run_id)
+    return result
 
 @router.post('/api/runs/{run_id}/replay')
 def again(run_id: str):

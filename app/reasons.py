@@ -12,3 +12,5 @@ REASONS = {
 }
 
 REASONS.update({'CUT_FORMAT': '切件规格无效', 'CUT_LIMIT': '切件超限', 'CUT_SIZE': '切件超长或为空', 'CUT_REMAINDER': '余料长度异常', 'CUT_KERF': '锯缝不足', 'DATE': '日期格式无效', 'REV_BLOCKED': '较新来源尚未采信'})
+REASONS.update({'CORRECTION_EMPTY': '补正文件没有可采信记录', 'CORRECTION_UNKNOWN': '没有此补正记录'})
+REASONS.update({'INVALIDATED': '已失效，按补正重算', 'KEPT': '未改动，按原签核发料', 'PENDING': '待人工核可'})

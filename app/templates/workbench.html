@@ -58,6 +58,12 @@
         <div class="actions"><label>结论 <select id="decision"><option>确认</option><option>退回</option></select></label>
         <button class="btn btn--primary" type="submit">提交复核</button></div>
       </form>
+      <form id="correction" class="panel__body" hidden>
+        <label>补正文件 <input id="correction-file" type="file" accept=".csv,text/csv"></label>
+        <textarea id="correction-csv" aria-label="补正记录 CSV" rows="4"></textarea>
+        <div class="actions"><button class="btn btn--primary" type="submit">登记补正并判定失效</button></div>
+        <output id="correction-notice" role="status"></output>
+      </form>
     </section></div>
       </main>
       <footer class="statusbar"><span id="state" role="status">等待输入</span><a href="/openapi.json">接口</a><span>UTC</span></footer>

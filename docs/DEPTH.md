@@ -15,6 +15,7 @@
 | M5 领料核对 | 核对独立清单和各类差异 | `POST /api/reconcile` | `app/modules/reconcile/service.py` | `tests/test_reconcile.py` |
 | M6 锯切批次 | 打开历史批次并对原文件复跑 | `POST /api/runs` | `app/modules/runs/service.py` | `tests/test_runs.py` |
 | M7 班组复核 | 登记复核结论并下载证据 | `POST /api/review/{run_id}` | `app/modules/review/decisions.py` | `tests/test_review.py` |
+| M8 补正失效 | 迟到修订按业务键判定已签批次失效并重算 | `POST /api/corrections` | `app/modules/correction/service.py` | `tests/test_corrections.py` |
 
 ## 陷阱登记
 
@@ -33,6 +34,9 @@
 | TRAP-17 | 旧版列名映射 | legacy.csv | `app/modules/contract/schema.py` | `tests/test_contract.py::test_legacy_aliased` |
 | TRAP-18 | 空文件、空白文件与仅表头 | 测试构造 | `app/modules/intake/service.py` | `tests/test_intake.py::test_empty_states` |
 | TRAP-26 | 陈旧复核版本拒绝 | 测试构造 | `app/modules/review/decisions.py` | `tests/test_review.py::test_stale` |
+| TRAP-27 | 同版冲突只标待核，不覆盖原签核 | 测试构造 | `app/modules/correction/service.py` | `tests/test_corrections.py::test_same_revision_conflict_only_pending_never_overwrites` |
+| TRAP-28 | 同补正重跑不重复生成失效记录 | 测试构造 | `app/modules/correction/service.py` | `tests/test_corrections.py::test_repeated_correction_is_idempotent` |
+| TRAP-29 | 业务字段未改的键仍按原签核发料 | 测试构造 | `app/modules/correction/service.py` | `tests/test_corrections.py::test_same_business_fields_keep_original_signoff` |
 | TRAP-105 | kerf blocks | cases.csv | `app/modules/domain/rule.py` | `tests/test_domain.py::test_kerf_blocks` |
 | TRAP-19 | best fit | cases.csv | `app/modules/domain/rule.py` | `tests/test_domain.py::test_best_fit` |
 

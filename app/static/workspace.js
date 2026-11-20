@@ -43,6 +43,45 @@ function tag(code) {
   return el('span', settings.reasons[code] || code, code === 'MATCH' ? 'state' : 'state problem');
 }
 
+function correctionTag(status) {
+  const labels = {applied: '已生效', pending: '待核', no_change: '无改动'};
+  const tone = status === 'applied' ? 'state problem' : status === 'pending' ? 'state problem' : 'state';
+  return el('span', labels[status] || status, tone);
+}
+
+function impactStatusTag(status) {
+  const upper = status.toUpperCase();
+  return el('span', settings.reasons[upper] || status, status === 'kept' ? 'state' : 'state problem');
+}
+
+function impactButton(correctionId) {
+  const button = el('button', '查看影响', 'btn');
+  button.type = 'button';
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    try {
+      const detail = await query(`/api/corrections/${correctionId}`);
+      const columns = [
+        ['批次', row => row.run_id.slice(0, 9)], [settings.key, 'key'],
+        ['判定', row => impactStatusTag(row.status)],
+        ['原因', row => settings.reasons[row.reason_code] || ''],
+        ['旧修订', row => row.old_revision], ['新修订', row => row.new_revision],
+        ['改动字段', row => row.changed_fields.join('、')],
+        ['旧新棒用量', row => row.old_amount], ['新新棒用量', row => row.new_amount],
+        ['新料段依据', row => evidence('料段去向', row.new_proof.map(step => `${step.metric} · ${step.value} ${step.unit}`))],
+        ['原签核行', row => evidence('来源字段', row.old_raw)],
+        ['补正行', row => evidence('来源字段', row.new_raw)],
+      ];
+      activeView = {stage: 'correction', columns, rows: detail.impacts};
+      filter.value = '';
+      filterTable();
+      notice(`补正影响 ${detail.impacts.length} 个已签批次业务键`);
+    } catch (error) { notice(error.message, true); }
+    finally { button.disabled = false; }
+  });
+  return button;
+}
+
 
 function showEvidence(row) {
   const panel = byId('evidence-panel');
@@ -85,7 +124,10 @@ function setRun(report) {
   topExport.href = `/api/export/${id}`;
   const values = {...result.counts, delta: result.book.delta, mismatched: result.book.mismatched};
   for (const cell of document.querySelectorAll('[data-count]')) cell.textContent = values[cell.dataset.count];
-  live.textContent = `批次 ${id.slice(0, 9)} · ${result.balanced ? '记录已对齐' : '记录数不符'}`;
+  const invalidated = (report.corrections || []).filter(item => item.status === 'invalidated').length;
+  const pending = (report.corrections || []).filter(item => item.status === 'pending').length;
+  live.textContent = `批次 ${id.slice(0, 9)} · ${result.balanced ? '记录已对齐' : '记录数不符'}`
+    + (invalidated ? ` · ${invalidated} 键已失效` : '') + (pending ? ` · ${pending} 键待核` : '');
 }
 
 async function render() {
@@ -93,6 +135,7 @@ async function render() {
   const stage = selected;
   byId('phase').textContent = settings.tabs[stage];
   byId('review').hidden = true;
+  byId('correction').hidden = stage !== 'correction';
   for (const link of links) {
     if (link.dataset.module === stage) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
@@ -105,7 +148,14 @@ async function render() {
   try {
     let view, rows;
     if (stage === 'domain') {
-      view = [key, [`新棒长度 · ${settings.unit}`, 'amount', 'num'], line, ['明细依据', inspect]];
+      const correctionByKey = new Map((result.corrections || []).map(item => [item.key, item]));
+      view = [key, [`新棒长度 · ${settings.unit}`, 'amount', 'num'],
+        ['补正状态', row => {
+          const item = correctionByKey.get(row.key);
+          return item ? impactStatusTag(item.status) : el('span', '原签核有效', 'state');
+        }],
+        ['补正后用量', row => correctionByKey.get(row.key)?.new_amount ?? ''],
+        line, ['明细依据', inspect]];
       rows = result.accepted;
     } else if (stage === 'quality') {
       view = [key, line, ['判定', row => tag(row.code)], ['说明', 'detail'], ['字段', raw]];
@@ -150,6 +200,12 @@ async function render() {
         return button;
       }]];
       rows = runs;
+    } else if (stage === 'correction') {
+      const corrections = await query('/api/corrections');
+      view = [['补正指纹', row => row.id.slice(0, 9)], ['状态', row => correctionTag(row.status)],
+              ['来源摘要', row => row.source_sha256.slice(0, 12)], ['登记 UTC', 'created'],
+              ['影响明细', row => impactButton(row.id)]];
+      rows = corrections;
     } else {
       const timeline = await query(`/api/review/${id}`);
       view = [['版本','version','num'], ['结论','decision'], ['复核意见','note'], ['登记 UTC','changed']];
@@ -242,5 +298,31 @@ byId('review').addEventListener('submit', async event => {
     notice(error.message, true);
     if (error.status === 409) await render();
   }
+});
+byId('correction-file').addEventListener('change', async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const [text] = await readInput(file);
+    byId('correction-csv').value = text;
+    notice(`已读取 ${file.name}`);
+  } catch (error) {
+    event.target.value = '';
+    notice(error.message, true);
+  }
+});
+byId('correction').addEventListener('submit', async event => {
+  event.preventDefault();
+  const text = byId('correction-csv').value;
+  if (!text.trim()) { notice('请先选择或粘贴补正 CSV', true); return; }
+  try {
+    const report = await query('/api/corrections', {data: text});
+    const invalidated = report.impacts.filter(item => item.status === 'invalidated').length;
+    const pending = report.impacts.filter(item => item.status === 'pending').length;
+    const kept = report.impacts.filter(item => item.status === 'kept').length;
+    notice(`补正已登记：失效 ${invalidated} 键 · 待核 ${pending} 键 · 未改动 ${kept} 键`);
+    if (result) setRun(await query(`/api/runs/${result.manifest.run_id}`));
+    await render();
+  } catch (error) { notice(error.message, true); }
 });
 render();
